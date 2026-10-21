@@ -1,0 +1,62 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from supabase import create_client, Client
+
+# 1. Configuración de Supabase (¡Reemplaza con tus datos!)
+SUPABASE_URL = "https://hlbjtodafnvnobfbzien.supabase.co"
+SUPABASE_KEY = "sb_secret_H_pUZiG7EaSzWJHz9B8ZIg_9SVZadk0"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# 2. Inicializar FastAPI
+app = FastAPI(title="OptiBiz POS API")
+
+# 3. Configurar CORS (Crucial para que la tablet HTML pueda hablar con Python sin bloqueos)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # En producción, aquí pones la URL de tu frontend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 4. Definir cómo debe verse un Pedido (Validación)
+class Pedido(BaseModel):
+    mesa: str
+    mesero: str = "Tablet 1"
+    detalle_pedido: list # Aquí vendrá el arreglo de sushis y cortes
+    total: float
+
+# --- ENDPOINTS (Las rutas de tu servidor) ---
+
+@app.get("/")
+def leer_raiz():
+    return {"mensaje": "Bienvenido al servidor de OptiBiz"}
+
+@app.get("/productos")
+def obtener_menu():
+    """Devuelve todos los productos disponibles para mostrarlos en la tablet"""
+    try:
+        respuesta = supabase.table("productos").select("*").eq("disponible", True).execute()
+        return respuesta.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/pedidos")
+def crear_pedido(pedido: Pedido):
+    """Recibe la orden de la tablet y la guarda en Supabase"""
+    try:
+        nuevo_pedido = {
+            "mesa": pedido.mesa,
+            "mesero": pedido.mesero,
+            "detalle_pedido": pedido.detalle_pedido,
+            "total": pedido.total,
+            "estado": "pendiente"
+        }
+        # Insertar en Supabase
+        respuesta = supabase.table("pedidos").insert(nuevo_pedido).execute()
+        
+        # Al insertar, Supabase gritará por Realtime a la cocina automáticamente
+        return {"mensaje": "Pedido enviado a cocina", "datos": respuesta.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
