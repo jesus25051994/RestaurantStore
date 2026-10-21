@@ -5,7 +5,7 @@ from supabase import create_client, Client
 
 # 1. Configuración de Supabase (¡Reemplaza con tus datos!)
 SUPABASE_URL = "https://hlbjtodafnvnobfbzien.supabase.co"
-SUPABASE_KEY = "sb_secret_H_pUZiG7EaSzWJHz9B8ZIg_9SVZadk0"
+SUPABASE_KEY = "sb_publishable_1wTYMhh-31D5lEgF1PoSDg_KsK9TLjf"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 2. Inicializar FastAPI
