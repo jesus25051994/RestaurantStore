@@ -4,9 +4,9 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 import uuid
 
-# 1. Configuración de Supabase (¡Pon tus datos aquí!)
-SUPABASE_URL = "TU_URL_AQUI"
-SUPABASE_KEY = "TU_KEY_AQUI"
+# 1. Configuración de Supabase (Tus datos reales)
+SUPABASE_URL = "https://hlbjtodafnvnobfbzien.supabase.co"
+SUPABASE_KEY = "sb_publishable_1wTYMhh-31D5lEgF1PoSDg_KsK9TLjf"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 2. Inicializar FastAPI
