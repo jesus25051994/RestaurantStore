@@ -44,7 +44,8 @@ def obtener_menu():
 
 @app.get("/modificadores")
 def get_modificadores():
-    response = supabase.table("modificadores").select("*").eq("disponible", True).execute()
+    # Traemos los modificadores buscando específicamente por grupo
+    response = supabase.table("modificadores").select("*").eq("grupo", "Extras").execute()
     return response.data
 
 @app.post("/pedidos")
