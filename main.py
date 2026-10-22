@@ -51,18 +51,22 @@ def obtener_menu():
 
 @app.post("/modificadores")
 def crear_extra(extra: Extra):
-    """Guarda un nuevo extra/modificador en la base de datos de forma global"""
+    """Guarda un nuevo extra/modificador en la base de datos"""
     try:
         nuevo_modificador = {
             "nombre": extra.nombre,
             "precio_extra": extra.precio_extra,
-            "grupo": extra.grupo,
-            "producto_id": None  # <--- ESTA ES LA MAGIA. Le decimos explícitamente que es un extra global (nulo)
+            "grupo": extra.grupo
+            # Eliminamos la línea de producto_id por completo para que Supabase la asigne como nula automáticamente
         }
         respuesta = supabase.table("modificadores").insert(nuevo_modificador).execute()
         return {"mensaje": "Extra creado con éxito"}
+    
     except Exception as e:
+        # Esto imprimirá el error real en tus logs de Render
+        print(f"⚠️ ERROR DE SUPABASE AL GUARDAR EXTRA: {e}") 
         raise HTTPException(status_code=500, detail=str(e))
+        
 
 @app.post("/pedidos")
 def crear_pedido(pedido: Pedido):
