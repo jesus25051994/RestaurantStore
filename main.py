@@ -42,6 +42,11 @@ def obtener_menu():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/modificadores")
+def get_modificadores():
+    response = supabase.table("modificadores").select("*").eq("disponible", True).execute()
+    return response.data
+
 @app.post("/pedidos")
 def crear_pedido(pedido: Pedido):
     """Recibe la orden de la tablet y la guarda en Supabase"""
