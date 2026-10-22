@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 import uuid
 
-# 1. Configuración de Supabase (¡Reemplaza con tus datos!)
+# 1. Configuración de Supabase
 SUPABASE_URL = "https://hlbjtodafnvnobfbzien.supabase.co"
 SUPABASE_KEY = "sb_publishable_1wTYMhh-31D5lEgF1PoSDg_KsK9TLjf"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -12,29 +12,27 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # 2. Inicializar FastAPI
 app = FastAPI()
 
-# --- CONFIGURACIÓN DE SEGURIDAD (CORS) ---
-origins = [
-    "http://localhost",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://fanciful-khapse-2b0c3b.netlify.app"  # <--- TU NUEVO LINK PÚBLICO
-]
-
-# 3. Configurar CORS (Crucial para que la tablet HTML pueda hablar con Python sin bloqueos)
+# 3. Configurar CORS (Usamos "*" para que no te bloquee al probar en local)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],      # Permite peticiones de Netlify y de tu compu local
+    allow_credentials=False,  # Debe ser False cuando usamos "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 4. Definir cómo debe verse un Pedido (Validación)
+# 4. Modelos de Datos (Validación)
 class Pedido(BaseModel):
     mesa: str
     mesero: str = "Tablet 1"
-    detalle_pedido: list # Aquí vendrá el arreglo de sushis y cortes
+    detalle_pedido: list 
     total: float
+
+class Extra(BaseModel):
+    nombre: str
+    precio_extra: float
+    grupo: str = "Extras"
+
 
 # --- ENDPOINTS (Las rutas de tu servidor) ---
 
@@ -53,9 +51,12 @@ def obtener_menu():
 
 @app.get("/modificadores")
 def get_modificadores():
-    # Traemos los modificadores buscando específicamente por grupo
-    response = supabase.table("modificadores").select("*").eq("grupo", "Extras").execute()
-    return response.data
+    """Trae los modificadores buscando específicamente por grupo"""
+    try:
+        response = supabase.table("modificadores").select("*").eq("grupo", "Extras").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/pedidos")
 def crear_pedido(pedido: Pedido):
@@ -68,10 +69,7 @@ def crear_pedido(pedido: Pedido):
             "total": pedido.total,
             "estado": "pendiente"
         }
-        # Insertar en Supabase
         respuesta = supabase.table("pedidos").insert(nuevo_pedido).execute()
-        
-        # Al insertar, Supabase gritará por Realtime a la cocina automáticamente
         return {"mensaje": "Pedido enviado a cocina", "datos": respuesta.data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -81,6 +79,7 @@ async def crear_producto(
     nombre: str = Form(...),
     precio: float = Form(...),
     categoria: str = Form(...),
+    descripcion: str = Form(""),  # <--- Recibimos la descripción desde admin.html
     imagen: UploadFile = File(None)
 ):
     """Sube la foto a Storage y crea el producto en la base de datos"""
@@ -104,11 +103,12 @@ async def crear_producto(
             # 4. Obtener el link público de la foto
             url_imagen = supabase.storage.from_("menu").get_public_url(nombre_archivo)
         
-        # 5. Guardar el menu en la base de datos
+        # 5. Guardar el platillo en la base de datos (con descripción)
         nuevo_producto = {
             "nombre": nombre,
             "precio": precio,
             "categoria": categoria,
+            "descripcion": descripcion,  # <--- Se guarda en tu nueva columna
             "url_imagen": url_imagen,
             "disponible": True
         }
@@ -116,5 +116,19 @@ async def crear_producto(
         
         return {"mensaje": "Producto creado con éxito", "producto": respuesta.data[0]}
     
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/modificadores")
+def crear_extra(extra: Extra):
+    """Guarda un nuevo extra/modificador en la base de datos"""
+    try:
+        nuevo_modificador = {
+            "nombre": extra.nombre,
+            "precio_extra": extra.precio_extra,
+            "grupo": extra.grupo
+        }
+        respuesta = supabase.table("modificadores").insert(nuevo_modificador).execute()
+        return {"mensaje": "Extra creado con éxito"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
