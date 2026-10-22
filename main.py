@@ -49,12 +49,18 @@ def obtener_menu():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/modificadores")
-def get_modificadores():
-    """Trae los modificadores buscando específicamente por grupo"""
+@app.post("/modificadores")
+def crear_extra(extra: Extra):
+    """Guarda un nuevo extra/modificador en la base de datos de forma global"""
     try:
-        response = supabase.table("modificadores").select("*").eq("grupo", "Extras").execute()
-        return response.data
+        nuevo_modificador = {
+            "nombre": extra.nombre,
+            "precio_extra": extra.precio_extra,
+            "grupo": extra.grupo,
+            "producto_id": None  # <--- ESTA ES LA MAGIA. Le decimos explícitamente que es un extra global (nulo)
+        }
+        respuesta = supabase.table("modificadores").insert(nuevo_modificador).execute()
+        return {"mensaje": "Extra creado con éxito"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
