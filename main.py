@@ -9,12 +9,20 @@ SUPABASE_KEY = "sb_publishable_1wTYMhh-31D5lEgF1PoSDg_KsK9TLjf"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 2. Inicializar FastAPI
-app = FastAPI(title="OptiBiz POS API")
+app = FastAPI()
+
+# --- CONFIGURACIÓN DE SEGURIDAD (CORS) ---
+origins = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://fanciful-khapse-2b0c3b.netlify.app"  # <--- TU NUEVO LINK PÚBLICO
+]
 
 # 3. Configurar CORS (Crucial para que la tablet HTML pueda hablar con Python sin bloqueos)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En producción, aquí pones la URL de tu frontend
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
