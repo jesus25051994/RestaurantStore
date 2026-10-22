@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
+import uuid
 
 # 1. Configuración de Supabase (¡Reemplaza con tus datos!)
 SUPABASE_URL = "https://hlbjtodafnvnobfbzien.supabase.co"
@@ -72,5 +73,48 @@ def crear_pedido(pedido: Pedido):
         
         # Al insertar, Supabase gritará por Realtime a la cocina automáticamente
         return {"mensaje": "Pedido enviado a cocina", "datos": respuesta.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/productos")
+async def crear_producto(
+    nombre: str = Form(...),
+    precio: float = Form(...),
+    categoria: str = Form(...),
+    imagen: UploadFile = File(None)
+):
+    """Sube la foto a Storage y crea el producto en la base de datos"""
+    try:
+        url_imagen = ""
+        if imagen:
+            # 1. Generar un nombre único para la foto
+            extension = imagen.filename.split('.')[-1]
+            nombre_archivo = f"{uuid.uuid4()}.{extension}"
+            
+            # 2. Leer la imagen
+            file_bytes = await imagen.read()
+            
+            # 3. Subir la imagen al bucket 'menu'
+            supabase.storage.from_("menu").upload(
+                path=nombre_archivo,
+                file=file_bytes,
+                file_options={"content-type": imagen.content_type}
+            )
+            
+            # 4. Obtener el link público de la foto
+            url_imagen = supabase.storage.from_("menu").get_public_url(nombre_archivo)
+        
+        # 5. Guardar el menu en la base de datos
+        nuevo_producto = {
+            "nombre": nombre,
+            "precio": precio,
+            "categoria": categoria,
+            "url_imagen": url_imagen,
+            "disponible": True
+        }
+        respuesta = supabase.table("productos").insert(nuevo_producto).execute()
+        
+        return {"mensaje": "Producto creado con éxito", "producto": respuesta.data[0]}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
