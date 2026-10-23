@@ -38,10 +38,8 @@ def leer_raiz():
     return {"mensaje": "Bienvenido al servidor de OptiBiz"}
 
 # --- RUTAS DE PRODUCTOS ---
-
 @app.get("/productos")
 def obtener_menu():
-    """Devuelve SOLO los productos activos (Para el Punto de Venta)"""
     try:
         respuesta = supabase.table("productos").select("*").eq("disponible", True).execute()
         return respuesta.data
@@ -50,7 +48,6 @@ def obtener_menu():
 
 @app.get("/admin/productos")
 def obtener_todos_productos():
-    """Devuelve TODOS los productos, incluyendo los dados de baja (Para el Administrador)"""
     try:
         respuesta = supabase.table("productos").select("*").order("categoria").execute()
         return respuesta.data
@@ -59,11 +56,8 @@ def obtener_todos_productos():
 
 @app.post("/productos")
 async def crear_producto(
-    nombre: str = Form(...),
-    precio: float = Form(...),
-    categoria: str = Form(...),
-    descripcion: str = Form(""),
-    imagen: UploadFile = File(None)
+    nombre: str = Form(...), precio: float = Form(...), categoria: str = Form(...),
+    descripcion: str = Form(""), imagen: UploadFile = File(None)
 ):
     try:
         url_imagen = ""
@@ -81,26 +75,17 @@ async def crear_producto(
             "descripcion": descripcion, "url_imagen": url_imagen, "disponible": True
         }
         respuesta = supabase.table("productos").insert(nuevo_producto).execute()
-        return {"mensaje": "Producto creado con éxito", "producto": respuesta.data[0]}
+        return {"mensaje": "Producto creado", "producto": respuesta.data[0]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/productos/{producto_id}")
 async def actualizar_producto(
-    producto_id: str,
-    nombre: str = Form(...),
-    precio: float = Form(...),
-    categoria: str = Form(...),
-    descripcion: str = Form(""),
-    imagen: UploadFile = File(None)
+    producto_id: str, nombre: str = Form(...), precio: float = Form(...),
+    categoria: str = Form(...), descripcion: str = Form(""), imagen: UploadFile = File(None)
 ):
-    """Actualiza un producto existente y su foto si se envía una nueva"""
     try:
-        datos_actualizar = {
-            "nombre": nombre, "precio": precio, "categoria": categoria, "descripcion": descripcion
-        }
-        
-        # Si se sube una imagen nueva, la procesamos y actualizamos el link
+        datos = {"nombre": nombre, "precio": precio, "categoria": categoria, "descripcion": descripcion}
         if imagen and imagen.filename:
             extension = imagen.filename.split('.')[-1]
             nombre_archivo = f"{uuid.uuid4()}.{extension}"
@@ -108,25 +93,22 @@ async def actualizar_producto(
             supabase.storage.from_("menu").upload(
                 path=nombre_archivo, file=file_bytes, file_options={"content-type": imagen.content_type}
             )
-            datos_actualizar["url_imagen"] = supabase.storage.from_("menu").get_public_url(nombre_archivo)
+            datos["url_imagen"] = supabase.storage.from_("menu").get_public_url(nombre_archivo)
             
-        respuesta = supabase.table("productos").update(datos_actualizar).eq("id", producto_id).execute()
+        respuesta = supabase.table("productos").update(datos).eq("id", producto_id).execute()
         return {"mensaje": "Producto actualizado", "producto": respuesta.data[0]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/productos/{producto_id}/estado")
 def cambiar_estado_producto(producto_id: str, estado: dict):
-    """Activa o da de baja un producto (True/False)"""
     try:
         respuesta = supabase.table("productos").update({"disponible": estado["disponible"]}).eq("id", producto_id).execute()
         return {"mensaje": "Estado actualizado"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# --- RUTAS DE EXTRAS Y PEDIDOS ---
-
+# --- RUTAS DE EXTRAS ---
 @app.get("/modificadores")
 def get_modificadores():
     try:
@@ -140,10 +122,11 @@ def crear_extra(extra: Extra):
     try:
         nuevo_modificador = {"nombre": extra.nombre, "precio_extra": extra.precio_extra, "grupo": extra.grupo}
         respuesta = supabase.table("modificadores").insert(nuevo_modificador).execute()
-        return {"mensaje": "Extra creado con éxito"}
+        return {"mensaje": "Extra creado"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- RUTAS DE PEDIDOS (COCINA) ---
 @app.post("/pedidos")
 def crear_pedido(pedido: Pedido):
     try:
@@ -153,5 +136,23 @@ def crear_pedido(pedido: Pedido):
         }
         respuesta = supabase.table("pedidos").insert(nuevo_pedido).execute()
         return {"mensaje": "Pedido enviado a cocina", "datos": respuesta.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/pedidos/pendientes")
+def obtener_pedidos_pendientes():
+    """Devuelve solo los pedidos que no han sido terminados, ordenados del más antiguo al más nuevo"""
+    try:
+        respuesta = supabase.table("pedidos").select("*").eq("estado", "pendiente").order("created_at").execute()
+        return respuesta.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/pedidos/{pedido_id}/estado")
+def actualizar_estado_pedido(pedido_id: str, estado_data: dict):
+    """Permite marcar un pedido como 'completado' para que desaparezca de la pantalla"""
+    try:
+        respuesta = supabase.table("pedidos").update({"estado": estado_data["estado"]}).eq("id", pedido_id).execute()
+        return {"mensaje": "Pedido completado"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
