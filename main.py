@@ -175,3 +175,25 @@ def cobrar_mesa(mesa: str):
         return {"mensaje": f"Mesa cobrada con éxito"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- RUTAS DE NOTIFICACIONES (LLAMAR AL MESERO) ---
+class Notificacion(BaseModel):
+    mesa: str
+    mensaje: str = "Solicita la cuenta"
+
+@app.post("/notificaciones")
+def llamar_mesero(notif: Notificacion):
+    try:
+        nueva_alerta = {"mesa": notif.mesa, "mensaje": notif.mensaje, "leido": False}
+        supabase.table("notificaciones").insert(nueva_alerta).execute()
+        return {"mensaje": "Mesero notificado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/notificaciones/{notif_id}/leido")
+def marcar_notificacion_leida(notif_id: str):
+    try:
+        supabase.table("notificaciones").update({"leido": True}).eq("id", notif_id).execute()
+        return {"mensaje": "Alerta atendida"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
