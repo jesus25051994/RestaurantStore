@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
+from datetime import datetime
 import uuid
 
 # 1. Configuración de Supabase (¡Pon tus datos reales aquí!)
@@ -195,5 +196,26 @@ def marcar_notificacion_leida(notif_id: str):
     try:
         supabase.table("notificaciones").update({"leido": True}).eq("id", notif_id).execute()
         return {"mensaje": "Alerta atendida"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- RUTA PARA EL CORTE DE CAJA (DASHBOARD GERENCIAL) ---
+@app.get("/pedidos_dia")
+def obtener_pedidos_del_dia():
+    try:
+        # 1. Obtener la fecha exacta del inicio del día (00:00:00)
+        hoy = datetime.now()
+        inicio_dia = hoy.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # 2. Convertir a formato ISO para que Supabase lo entienda
+        inicio_dia_iso = inicio_dia.isoformat()
+
+        # 3. Pedir a Supabase todos los registros desde el inicio del día hasta este momento
+        respuesta = supabase.table("pedidos").select("*").gte("created_at", inicio_dia_iso).execute()
+        
+        # 4. Devolver la lista al Frontend (corte.html)
+        return respuesta.data
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
