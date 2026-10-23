@@ -12,7 +12,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # 2. Inicializar FastAPI
 app = FastAPI()
 
-# 3. Configurar CORS
+# 3. Configurar CORS (Esto permite que trabajes en Local sin problemas)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -126,7 +126,7 @@ def crear_extra(extra: Extra):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- RUTAS DE PEDIDOS (COCINA) ---
+# --- RUTAS DE PEDIDOS (COCINA Y POS) ---
 @app.post("/pedidos")
 def crear_pedido(pedido: Pedido):
     try:
@@ -141,7 +141,6 @@ def crear_pedido(pedido: Pedido):
 
 @app.get("/pedidos/pendientes")
 def obtener_pedidos_pendientes():
-    """Devuelve solo los pedidos que no han sido terminados, ordenados del más antiguo al más nuevo"""
     try:
         respuesta = supabase.table("pedidos").select("*").eq("estado", "pendiente").order("created_at").execute()
         return respuesta.data
@@ -150,9 +149,29 @@ def obtener_pedidos_pendientes():
 
 @app.put("/pedidos/{pedido_id}/estado")
 def actualizar_estado_pedido(pedido_id: str, estado_data: dict):
-    """Permite marcar un pedido como 'completado' para que desaparezca de la pantalla"""
     try:
         respuesta = supabase.table("pedidos").update({"estado": estado_data["estado"]}).eq("id", pedido_id).execute()
         return {"mensaje": "Pedido completado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- NUEVAS RUTAS PARA LA CUENTA ---
+
+@app.get("/cuenta/{mesa}")
+def obtener_cuenta_mesa(mesa: str):
+    """Suma todos los pedidos de una mesa que aún NO han sido pagados"""
+    try:
+        # Buscamos todo lo de esa mesa que no esté 'pagado' (puede estar 'pendiente' o 'completado' por cocina)
+        respuesta = supabase.table("pedidos").select("*").eq("mesa", mesa).neq("estado", "pagado").execute()
+        return respuesta.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/cuenta/{mesa}/pagar")
+def cobrar_mesa(mesa: str):
+    """Marca todos los pedidos activos de la mesa como 'pagado' para limpiar la cuenta"""
+    try:
+        respuesta = supabase.table("pedidos").update({"estado": "pagado"}).eq("mesa", mesa).neq("estado", "pagado").execute()
+        return {"mensaje": f"Mesa cobrada con éxito"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
